@@ -1,35 +1,32 @@
 name: Periodic Sync
 
 on:
-  schedule:
-    - cron: '0 0 * * *' # RUN AT 12:00 AM EVERYDAY
-  
-  workflow_dispatch: # on button click
-
+	schedule:
+ 		- cron: '0 0 * * *' # RUN AT 12:00 AM EVERYDAY
+  		workflow_dispatch: # on button click
 
 jobs:
-  sync:
-    runs-on: ubuntu-latest
-  
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: master
-      - name: Check if there any update and sync the forked repo
-        run: |
-         git remote add upstream https://github.com/torvalds/linux.git -t master
-         git fetch --tags upstream
-         for tag in $(git tag); do
-           tag_name=$(echo "$tag")
-           behind_count=$(git rev-list --count HEAD..upstream/$tag_name)
-           # Log tag name and behind count
-           echo "Tag: $tag_name, Behind count: $behind_count"
-           # Check if the tag is behind upstream
-           if [ "$behind_count" -gt 0 ]; then
-             git checkout -B $tag_name upstream/$tag_name  # Checkout the tag
-             git pull upstream $tag_name --no-edit  # Pull changes from upstream
-             git push origin $tag_name  # Push changes to fork
-           fi
-         done
-       shell: bash
+	sync:
+ 		runs-on: ubuntu-latest
+  		steps:
+      			- uses: actions/checkout@v4
+        		with:
+          			fetch-depth: 0
+          			ref: master
+      			- name: Check if there any update and sync the forked repo
+	 		  run: |
+         		  	git remote add upstream https://github.com/torvalds/linux.git -t master
+         			git fetch --tags upstream
+         			for tag in $(git tag); do
+           				tag_name=$(echo "$tag")
+           				behind_count=$(git rev-list --count HEAD..upstream/$tag_name)
+           				# Log tag name and behind count
+           				echo "Tag: $tag_name, Behind count: $behind_count"
+           				# Check if the tag is behind upstream
+           				if [ "$behind_count" -gt 0 ]; then
+             					git switch -C $tag_name upstream/$tag_name  # Checkout the tag
+             					git pull upstream $tag_name --no-edit  # Pull changes from upstream
+             					git push origin $tag_name  # Push changes to fork
+           				fi
+         			done
+       			  shell: bash
