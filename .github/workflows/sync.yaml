@@ -13,11 +13,11 @@ jobs:
         with:
           fetch-depth: 0
           ref: master
-      - name: Check if there any update and sync the forked repo
+      - name: sync the forked repo
         run: |
           git remote add upstream https://github.com/torvalds/linux.git
-          git fetch --depth=0 upstream master
+          git fetch upstream master
           git push origin master --force
-          git fetch --depth=0 --tags upstream master
-          git push --tags origin --force
+          git fetch --tags upstream master
+          git push --tags origin master --force
         shell: bash
