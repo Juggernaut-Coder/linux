@@ -15,7 +15,8 @@ jobs:
           ref: master
       - name: Check if there any update and sync the forked repo
         run: |
-          git remote add upstream https://github.com/torvalds/linux.git -t master
-          git fetch --tags upstream
-          git push --tags origin
+          git remote add upstream https://github.com/torvalds/linux.git
+          git fetch upstream master
+          git fetch --tags upstream master
+          git push --tags origin --force
         shell: bash
