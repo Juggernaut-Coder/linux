@@ -17,7 +17,7 @@ jobs:
         run: |
           git remote add upstream https://github.com/torvalds/linux.git
           git fetch upstream master
-          git push origin master --force
+          git merge upstream/master
           git fetch --tags upstream master
-          git push --tags origin master --force
+          git merge --tags upstream/master --force
         shell: bash
