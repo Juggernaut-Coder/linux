@@ -8,6 +8,7 @@
  * Some code and ideas taken from drivers/video/omap/ driver
  * by Imre Deak.
  */
+#ifdef CONFIG_FB_DEVICE
 
 #include <linux/fb.h>
 #include <linux/sysfs.h>
@@ -23,6 +24,8 @@
 #include <video/omapvrfb.h>
 
 #include "omapfb.h"
+
+
 
 static ssize_t show_rotate_type(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -538,6 +541,7 @@ static ssize_t store_upd_mode(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
+
 static struct device_attribute omapfb_attrs[] = {
 	__ATTR(rotate_type, S_IRUGO | S_IWUSR, show_rotate_type,
 			store_rotate_type),
@@ -550,6 +554,7 @@ static struct device_attribute omapfb_attrs[] = {
 	__ATTR(virt_addr, S_IRUGO, show_virt, NULL),
 	__ATTR(update_mode, S_IRUGO | S_IWUSR, show_upd_mode, store_upd_mode),
 };
+
 
 int omapfb_create_sysfs(struct omapfb2_device *fbdev)
 {
@@ -585,4 +590,4 @@ void omapfb_remove_sysfs(struct omapfb2_device *fbdev)
 					&omapfb_attrs[t]);
 	}
 }
-
+#endif
