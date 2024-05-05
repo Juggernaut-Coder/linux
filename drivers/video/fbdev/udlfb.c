@@ -342,7 +342,7 @@ static int dlfb_ops_mmap(struct fb_info *info, struct vm_area_struct *vma)
 
 	pos = (unsigned long)info->fix.smem_start + offset;
 
-	dev_dbg(info->dev, "mmap() framebuffer addr:%lu size:%lu\n",
+	fb_dbg(info, "mmap() framebuffer addr:%lu size:%lu\n",
 		pos, size);
 
 	while (size > 0) {
@@ -930,7 +930,7 @@ static int dlfb_ops_open(struct fb_info *info, int user)
 		fb_deferred_io_init(info);
 	}
 
-	dev_dbg(info->dev, "open, user=%d fb_info=%p count=%d\n",
+	fb_dbg(info, "open, user=%d fb_info=%p count=%d\n",
 		user, info, dlfb->fb_count);
 
 	return 0;
@@ -983,7 +983,7 @@ static int dlfb_ops_release(struct fb_info *info, int user)
 		info->fbdefio = NULL;
 	}
 
-	dev_dbg(info->dev, "release, user=%d count=%d\n", user, dlfb->fb_count);
+	fb_dbg(info, "release, user=%d count=%d\n", user, dlfb->fb_count);
 
 	return 0;
 }
@@ -1096,7 +1096,7 @@ static int dlfb_ops_blank(int blank_mode, struct fb_info *info)
 	char *bufptr;
 	struct urb *urb;
 
-	dev_dbg(info->dev, "blank, mode %d --> %d\n",
+	fb_dbg(info, "blank, mode %d --> %d\n",
 		dlfb->blank_mode, blank_mode);
 
 	if ((dlfb->blank_mode == FB_BLANK_POWERDOWN) &&
@@ -1190,7 +1190,7 @@ static int dlfb_realloc_framebuffer(struct dlfb_data *dlfb, struct fb_info *info
 		 */
 		new_fb = vmalloc(new_len);
 		if (!new_fb) {
-			dev_err(info->dev, "Virtual framebuffer alloc failed\n");
+			fb_err(info, "Virtual framebuffer alloc failed\n");
 			return -ENOMEM;
 		}
 		memset(new_fb, 0xff, new_len);
@@ -1214,7 +1214,7 @@ static int dlfb_realloc_framebuffer(struct dlfb_data *dlfb, struct fb_info *info
 		if (shadow)
 			new_back = vzalloc(new_len);
 		if (!new_back)
-			dev_info(info->dev,
+			fb_info(info,
 				 "No shadow/backing buffer allocated\n");
 		else {
 			dlfb_deferred_vfree(dlfb, dlfb->backing_buffer);
@@ -1248,12 +1248,15 @@ static int dlfb_setup_modes(struct dlfb_data *dlfb,
 	struct fb_videomode *mode;
 	const struct fb_videomode *default_vmode = NULL;
 
-	if (info->dev) {
-		/* only use mutex if info has been registered */
-		mutex_lock(&info->lock);
-		/* parent device is used otherwise */
+
+	/* acquire mutex lock unconditionally */
+	mutex_lock(&info->lock);
+#ifdef CONFIG_FB_DEVICE
+        if(info->dev) {
+                /* parent device is used otherwise */
 		dev = info->dev;
-	}
+        }
+#endif
 
 	edid = kmalloc(EDID_LENGTH, GFP_KERNEL);
 	if (!edid) {
@@ -1376,8 +1379,8 @@ error:
 	if (edid && (dlfb->edid != edid))
 		kfree(edid);
 
-	if (info->dev)
-		mutex_unlock(&info->lock);
+	/* acquire mutex lock unconditionally */
+	mutex_unlock(&info->lock);
 
 	return result;
 }
@@ -1494,6 +1497,7 @@ static const struct device_attribute fb_device_attrs[] = {
 	__ATTR(metrics_reset, S_IWUSR, NULL, metrics_reset_store),
 };
 
+
 /*
  * This is necessary before we can communicate with the display controller.
  */
@@ -1597,8 +1601,6 @@ success:
 static int dlfb_usb_probe(struct usb_interface *intf,
 			  const struct usb_device_id *id)
 {
-	int i;
-	const struct device_attribute *attr;
 	struct dlfb_data *dlfb;
 	struct fb_info *info;
 	int retval;
@@ -1702,25 +1704,29 @@ static int dlfb_usb_probe(struct usb_interface *intf,
 		goto error;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(fb_device_attrs); i++) {
+#ifdef CONFIG_FB_DEVICE
+        const struct device_attribute *attr;
+        /* create udlfb's sysfs interfaces */
+	for (int i = 0; i < ARRAY_SIZE(fb_device_attrs); i++) {
 		attr = &fb_device_attrs[i];
 		retval = device_create_file(info->dev, attr);
 		if (retval)
-			dev_warn(info->device,
+			fb_warn(info,
 				 "failed to create '%s' attribute: %d\n",
 				 attr->attr.name, retval);
 	}
 
 	retval = device_create_bin_file(info->dev, &edid_attr);
 	if (retval)
-		dev_warn(info->device, "failed to create '%s' attribute: %d\n",
+		fb_warn(info, "failed to create '%s' attribute: %d\n",
 			 edid_attr.attr.name, retval);
 
-	dev_info(info->device,
+	fb_info(info,
 		 "%s is DisplayLink USB device (%dx%d, %dK framebuffer memory)\n",
 		 dev_name(info->dev), info->var.xres, info->var.yres,
 		 ((dlfb->backing_buffer) ?
 		 info->fix.smem_len * 2 : info->fix.smem_len) >> 10);
+#endif
 	return 0;
 
 error:
@@ -1737,7 +1743,6 @@ static void dlfb_usb_disconnect(struct usb_interface *intf)
 {
 	struct dlfb_data *dlfb;
 	struct fb_info *info;
-	int i;
 
 	dlfb = usb_get_intfdata(intf);
 	info = dlfb->info;
@@ -1753,10 +1758,12 @@ static void dlfb_usb_disconnect(struct usb_interface *intf)
 	/* this function will wait for all in-flight urbs to complete */
 	dlfb_free_urb_list(dlfb);
 
+#ifdef CONFIG_FB_DEVICE
 	/* remove udlfb's sysfs interfaces */
-	for (i = 0; i < ARRAY_SIZE(fb_device_attrs); i++)
+	for (int i = 0; i < ARRAY_SIZE(fb_device_attrs); i++)
 		device_remove_file(info->dev, &fb_device_attrs[i]);
 	device_remove_bin_file(info->dev, &edid_attr);
+#endif
 
 	unregister_framebuffer(info);
 }
@@ -1955,4 +1962,3 @@ MODULE_AUTHOR("Roberto De Ioris <roberto@unbit.it>, "
 	      "Bernie Thompson <bernie@plugable.com>");
 MODULE_DESCRIPTION("DisplayLink kernel framebuffer driver");
 MODULE_LICENSE("GPL");
-
