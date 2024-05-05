@@ -1505,7 +1505,7 @@ sh_mobile_lcdc_overlay_fb_unregister(struct sh_mobile_lcdc_overlay *ovl)
 {
 	struct fb_info *info = ovl->info;
 
-	if (info == NULL || info->dev == NULL)
+	if (info == NULL)
 		return;
 
 	unregister_framebuffer(ovl->info);
@@ -1514,9 +1514,8 @@ sh_mobile_lcdc_overlay_fb_unregister(struct sh_mobile_lcdc_overlay *ovl)
 static int
 sh_mobile_lcdc_overlay_fb_register(struct sh_mobile_lcdc_overlay *ovl)
 {
-	struct sh_mobile_lcdc_priv *lcdc = ovl->channel->lcdc;
+        struct sh_mobile_lcdc_priv *lcdc = ovl->channel->lcdc;
 	struct fb_info *info = ovl->info;
-	unsigned int i;
 	int ret;
 
 	if (info == NULL)
@@ -1526,15 +1525,17 @@ sh_mobile_lcdc_overlay_fb_register(struct sh_mobile_lcdc_overlay *ovl)
 	if (ret < 0)
 		return ret;
 
-	dev_info(lcdc->dev, "registered %s/overlay %u as %dx%d %dbpp.\n",
+        dev_info(lcdc->dev, "registered %s/overlay %u as %dx%d %dbpp.\n",
 		 dev_name(lcdc->dev), ovl->index, info->var.xres,
 		 info->var.yres, info->var.bits_per_pixel);
 
-	for (i = 0; i < ARRAY_SIZE(overlay_sysfs_attrs); ++i) {
+#ifdef CONFIG_FB_DEVICE
+	for (unsigned int i = 0; i < ARRAY_SIZE(overlay_sysfs_attrs); ++i) {
 		ret = device_create_file(info->dev, &overlay_sysfs_attrs[i]);
 		if (ret < 0)
 			return ret;
 	}
+#endif
 
 	return 0;
 }
@@ -1785,7 +1786,7 @@ static int sh_mobile_lcdc_release(struct fb_info *info, int user)
 	struct sh_mobile_lcdc_chan *ch = info->par;
 
 	mutex_lock(&ch->open_lock);
-	dev_dbg(info->dev, "%s(): %d users\n", __func__, ch->use_count);
+	fb_dbg(info, "%s(): %d users\n", __func__, ch->use_count);
 
 	ch->use_count--;
 
@@ -1808,7 +1809,7 @@ static int sh_mobile_lcdc_open(struct fb_info *info, int user)
 	mutex_lock(&ch->open_lock);
 	ch->use_count++;
 
-	dev_dbg(info->dev, "%s(): %d users\n", __func__, ch->use_count);
+	fb_dbg(info, "%s(): %d users\n", __func__, ch->use_count);
 	mutex_unlock(&ch->open_lock);
 
 	return 0;
@@ -1892,7 +1893,7 @@ static int sh_mobile_lcdc_set_par(struct fb_info *info)
 
 	ret = sh_mobile_lcdc_start(ch->lcdc);
 	if (ret < 0)
-		dev_err(info->dev, "%s: unable to restart LCDC\n", __func__);
+		fb_err(info, "%s: unable to restart LCDC\n", __func__);
 
 	info->fix.line_length = ch->pitch;
 
@@ -1984,7 +1985,8 @@ static const struct fb_ops sh_mobile_lcdc_ops = {
 static void
 sh_mobile_lcdc_channel_fb_unregister(struct sh_mobile_lcdc_chan *ch)
 {
-	if (ch->info && ch->info->dev)
+
+	if (ch->info)
 		unregister_framebuffer(ch->info);
 }
 
